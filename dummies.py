@@ -60,6 +60,31 @@ class Player(P):
 
 
 
+class AlongRow:
+
+
+    def setup(self):
+        self.idx = 0
+
+
+    def play(self, board: np.ndarray) -> int:
+        action = self.idx
+        self.idx += 1
+        return action
+
+
+class AlongColumn:
+
+
+    def setup(self):
+        self.idx = 0
+
+
+    def play(self, board: np.ndarray) -> int:
+        return self.idx
+
+
+
 if __name__=='__main__':
     from connect4 import Connect4Board
 
