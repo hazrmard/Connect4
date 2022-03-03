@@ -142,6 +142,26 @@ optional arguments:
 
 ```
 
+## Playing with others
+
+1. Clone this repository and install dependencies,
+2. Each player should be defined in a python module (single file) or a package (directory) from which the player class can be imported.
+3. The default player class is named Player. This will be automatically imported. If you have named your player class something else, you’ll need to provide it to the command line script.
+4. Now you can run the two players against each other. Let’s say the players are named as shown above. From the connect4/ working directory, you can run:
+
+```
+    python connect4.py -v player_arena.player_vunetid_a player_arena.player_vunetid_b
+```
+
+And it will run the two players against each other.
+
+If you have custom class names:
+
+    python connect4.py -v player_arena.player_vunetid_a/CLASSNAME player_arena.player_vunetid_b/CLASSNAME
+                
+If you want to run a championship of all players in the directory, where each player plays against every one else:
+
+    python connect4.py -c player_arena
 
 ---
 
