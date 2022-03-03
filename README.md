@@ -146,8 +146,9 @@ optional arguments:
 
 1. Clone this repository and install dependencies,
 2. Each player should be defined in a python module (single file) or a package (directory) from which the player class can be imported.
-3. The default player class is named Player. This will be automatically imported. If you have named your player class something else, you’ll need to provide it to the command line script.
-4. Now you can run the two players against each other. Let’s say the players are named as shown above. From the connect4/ working directory, you can run:
+3. Put your player files in the player_arena directory (or any other directory under connect4/). See the [player_arena](/player_arena) directory for an example.
+4. The default player class is named Player. This will be automatically imported. If you have named your player class something else, you’ll need to provide it to the command line script.
+5. Now you can run the two players against each other. Let’s say the players are named as shown above. From the connect4/ working directory, you can run:
 
 ```
     python connect4.py -v player_arena.player_vunetid_a player_arena.player_vunetid_b
