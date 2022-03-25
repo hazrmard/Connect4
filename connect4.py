@@ -42,8 +42,9 @@ MAX_INVALID_MOVES = 3
 
 def runner(player_path: str, move_queue: mp.Queue, board_queue: mp.Queue, suppress: bool=False):
     if suppress:
-        import sys
-        sys.stdout = sys.stderr
+        import sys, os
+        f = open(os.devnull, 'w', encoding='utf-8')
+        sys.stdout = f
     class_name = 'Player'
     try:
         components = player_path.split('/')
@@ -65,6 +66,8 @@ def runner(player_path: str, move_queue: mp.Queue, board_queue: mp.Queue, suppre
             break
         move = player.play(board)
         move_queue.put(move)
+    if suppress:
+        f.close()
 
 
 
@@ -232,7 +235,7 @@ class Connect4Board():
 
 
     def play_multiple(
-        self, player1: str, player2: str, num: int=1, alternate: bool=True
+        self, player1: str, player2: str, num: int=1, alternate: bool=True, verbose: bool=False
     ) -> Dict[str, int]:
         record = {
             player1: 0, player2: 0, None: 0
@@ -245,6 +248,8 @@ class Connect4Board():
                 p1, p2 = player2, player1
             winner, reason, moves = self.play(p1, p2)
             record[winner] += 1
+            if verbose:
+                print('Winner: %s.\t%s' % (winner, reason))
         return record
 
     @property
@@ -290,14 +295,15 @@ def championship(
     # Now generating pairings of players for a game:
     max_len = max(map(len, arena))
     for player1, player2 in (combinations(arena, 2)):
+        if verbose:
+            print(f'{player1:>{max_len}} vs {player2:<{max_len}}')
         game = Connect4Board(**game_options)
-        record = game.play_multiple(player1, player2, num, alternate=True)
+        record = game.play_multiple(player1, player2, num, alternate=True, verbose=verbose)
         victories[idx_ref[player1], idx_ref[player2]] += record[player1]
         victories[idx_ref[player2], idx_ref[player1]] += record[player2]
         draws[idx_ref[player1], idx_ref[player2]] += record[None]
         draws[idx_ref[player2], idx_ref[player1]] += record[None]
         if verbose:
-            print(f'{player1:>{max_len}} vs {player2:<{max_len}}')
             print(f'{record[player1]:>{max_len}} -- {record[player2]:<{max_len}}')
             if record[None] > 0: # draws
                 print(f'Draws: {record[None]:^{2*max_len+4}}')
