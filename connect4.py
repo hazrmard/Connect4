@@ -40,7 +40,10 @@ TIMEOUT_SETUP = 2.
 MAX_INVALID_MOVES = 3
 
 
-def runner(player_path: str, move_queue: mp.Queue, board_queue: mp.Queue):
+def runner(player_path: str, move_queue: mp.Queue, board_queue: mp.Queue, suppress: bool=False):
+    if suppress:
+        import sys
+        sys.stdout = sys.stderr
     class_name = 'Player'
     try:
         components = player_path.split('/')
@@ -70,7 +73,8 @@ class Connect4Board():
     def __init__(
         self, rows=ROWS, columns=COLUMNS, timeout_move=TIMEOUT_MOVE,
         timeout_setup=TIMEOUT_SETUP, num_connect=NUM_CONNECT,
-        max_invalid_moves=MAX_INVALID_MOVES
+        max_invalid_moves=MAX_INVALID_MOVES, deterministic: bool=True,
+        suppress: bool=False
     ):
         """
         rows : int -- number of rows in the game
@@ -85,6 +89,8 @@ class Connect4Board():
         self.timeout_move = timeout_move
         self.timeout_setup = timeout_setup
         self.max_invalid_moves = max_invalid_moves
+        self.deterministic = deterministic
+        self.suppress = suppress
 
         self.kernels = (
             np.ones((1,num_connect)),
@@ -135,9 +141,13 @@ class Connect4Board():
     def play(self, player1: str, player2: str):
 
         # Randomly swap p1, p2 for first move.
-        toss = random.randint(0, 1)
-        p1, p1piece = (player1, +1) if toss==1 else (player2, -1)
-        p2, p2piece = (player2, -1) if toss==1 else (player1, +1)
+        if self.deterministic:
+            p1, p1piece = (player1, +1)
+            p2, p2piece = (player2, -1)
+        else:
+            toss = random.randint(0, 1)
+            p1, p1piece = (player1, +1) if toss==1 else (player2, -1)
+            p2, p2piece = (player2, -1) if toss==1 else (player1, +1)
 
         p1_move_queue = mp.Queue(maxsize=1)
         p2_move_queue = mp.Queue(maxsize=1)
@@ -147,7 +157,7 @@ class Connect4Board():
         self.reset_board()
         winner, reason, moves = None, '', []
         try:
-            p1_process = mp.Process(target=runner, args=(p1, p1_move_queue, p1_board_queue))
+            p1_process = mp.Process(target=runner, args=(p1, p1_move_queue, p1_board_queue, self.suppress))
             p1_process.start()
             status1 = p1_move_queue.get(timeout=self.timeout_setup)
             if status1 != 'ready': raise Exception(status1)
@@ -155,7 +165,7 @@ class Connect4Board():
             winner, reason = p2, 'Error: %s' % exc
             status1 = ''
         try:
-            p2_process = mp.Process(target=runner, args=(p2, p2_move_queue, p2_board_queue))
+            p2_process = mp.Process(target=runner, args=(p2, p2_move_queue, p2_board_queue, self.suppress))
             p2_process.start()
             status2 = p2_move_queue.get(timeout=self.timeout_setup)
             if status2 != 'ready': raise Exception(status2)
@@ -222,14 +232,18 @@ class Connect4Board():
 
 
     def play_multiple(
-        self, player1: str, player2: str, num: int=1
+        self, player1: str, player2: str, num: int=1, alternate: bool=True
     ) -> Dict[str, int]:
         record = {
             player1: 0, player2: 0, None: 0
         }
 
         for i in range(num):
-            winner, reason, moves = self.play(player1, player2)
+            if i % 2 == 0:
+                p1, p2 = player1, player2
+            else:
+                p1, p2 = player2, player1
+            winner, reason, moves = self.play(p1, p2)
             record[winner] += 1
         return record
 
@@ -277,7 +291,7 @@ def championship(
     max_len = max(map(len, arena))
     for player1, player2 in (combinations(arena, 2)):
         game = Connect4Board(**game_options)
-        record = game.play_multiple(player1, player2, num)
+        record = game.play_multiple(player1, player2, num, alternate=True)
         victories[idx_ref[player1], idx_ref[player2]] += record[player1]
         victories[idx_ref[player2], idx_ref[player1]] += record[player2]
         draws[idx_ref[player1], idx_ref[player2]] += record[None]
@@ -285,6 +299,8 @@ def championship(
         if verbose:
             print(f'{player1:>{max_len}} vs {player2:<{max_len}}')
             print(f'{record[player1]:>{max_len}} -- {record[player2]:<{max_len}}')
+            if record[None] > 0: # draws
+                print(f'Draws: {record[None]:^{2*max_len+4}}')
     losses = victories.T
     if idx_insertion is not None:
         del sys.path[idx_insertion] # leave sys.path unchanged after function returns
@@ -338,6 +354,10 @@ if __name__ == '__main__':
         '--max_invalid_moves', type=int, default=MAX_INVALID_MOVES,
         help='Max invalid moves before forfeiting the game.'
     )
+    parser.add_argument(
+        '--suppress', default=False, action='store_true',
+        help='Whether to suppress stdout of player processes.'
+    )
     args = parser.parse_args()
 
     if args.versus is not None and args.championship is not None:
@@ -348,7 +368,8 @@ if __name__ == '__main__':
         rows=args.rows, columns=args.columns,
         timeout_move=args.timeout_move, timeout_setup=args.timeout_setup,
         num_connect=args.num_connect,
-        max_invalid_moves=args.max_invalid_moves
+        max_invalid_moves=args.max_invalid_moves,
+        suppress=args.suppress
     )
 
     if args.versus is not None:
@@ -361,7 +382,9 @@ if __name__ == '__main__':
         reverse_ref = {idx: name for name, idx in ref.items()}
         max_len = max(map(len, ref.keys()))
         totals = np.sum(vic, axis=1)
+        total_draws = np.sum(dra, axis=1)
         rankings = np.argsort(totals)[::-1]
-        print('{:{max_len}s}\t{:2s}'.format('Player', 'Wins', max_len=max_len))
+        print('{:{max_len}s}\t{:2s}\t{:2s}'.format('Player', 'Wins', 'Draws', max_len=max_len))
         for idx in rankings:
-            print('{:{max_len}s}\t{:2d}'.format(reverse_ref[idx], totals[idx], max_len=max_len))
+            print('{:{max_len}s}\t{:2d}\t{:2d}'.format(reverse_ref[idx], totals[idx], total_draws[idx], max_len=max_len))
+    exit(0)
