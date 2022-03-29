@@ -389,8 +389,9 @@ if __name__ == '__main__':
         max_len = max(map(len, ref.keys()))
         totals = np.sum(vic, axis=1)
         total_draws = np.sum(dra, axis=1)
+        total_loss = np.sum(los, axis=1)
         rankings = np.argsort(totals)[::-1]
-        print('{:{max_len}s}\t{:2s}\t{:2s}'.format('Player', 'Wins', 'Draws', max_len=max_len))
+        print('{:{max_len}s}\t{:2s}\t{:2s}\t{:2s}'.format('Player', 'Wins', 'Draws', 'Losses', max_len=max_len))
         for idx in rankings:
-            print('{:{max_len}s}\t{:2d}\t{:2d}'.format(reverse_ref[idx], totals[idx], total_draws[idx], max_len=max_len))
+            print('{:{max_len}s}\t{:2d}\t{:2d}\t{:2d}'.format(reverse_ref[idx], totals[idx], total_draws[idx], total_loss[idx], max_len=max_len))
     exit(0)
