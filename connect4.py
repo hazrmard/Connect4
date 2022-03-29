@@ -238,7 +238,7 @@ class Connect4Board():
         self, player1: str, player2: str, num: int=1, alternate: bool=True, verbose: bool=False
     ) -> Dict[str, int]:
         record = {
-            player1: 0, player2: 0, None: 0
+            player1: 0, player2: 0, None: 0, 'moves'=[]
         }
 
         for i in range(num):
@@ -248,6 +248,7 @@ class Connect4Board():
                 p1, p2 = player2, player1
             winner, reason, moves = self.play(p1, p2)
             record[winner] += 1
+            record['moves'].append(((p1,p2), moves))
             if verbose:
                 print('Winner: %s.\t%s' % (winner, reason))
         return record
@@ -288,6 +289,7 @@ def championship(
     victories = np.zeros((len(arena), len(arena)), dtype=int)
     losses = np.zeros((len(arena), len(arena)), dtype=int)
     draws = np.zeros((len(arena), len(arena)), dtype=int)
+    avg_moves = np.zeros_like(victories)
     idx_ref = {player_name:i for i, player_name in enumerate(arena)}
     # If arena was a string, it is now expanded into a list of player names with
     # the default Player class. If it already was a list of strings, those can
@@ -299,10 +301,16 @@ def championship(
             print(f'{player1:>{max_len}} vs {player2:<{max_len}}')
         game = Connect4Board(**game_options)
         record = game.play_multiple(player1, player2, num, alternate=True, verbose=verbose)
+        if verbose:
+            print('Moves:')
+            for players, moves in record[]:
+                print('\t%s:%s' % (players. moves))
         victories[idx_ref[player1], idx_ref[player2]] += record[player1]
         victories[idx_ref[player2], idx_ref[player1]] += record[player2]
         draws[idx_ref[player1], idx_ref[player2]] += record[None]
         draws[idx_ref[player2], idx_ref[player1]] += record[None]
+        avg_moves[idx_ref[player1], idx_ref[player2]] = sum(len(m[1]) for m in record['moves']) / len(record['moves'])
+        avg_moves[idx_ref[player2], idx_ref[player1]] = avg_moves[idx_ref[player1], idx_ref[player2]]
         if verbose:
             print(f'{record[player1]:>{max_len}} -- {record[player2]:<{max_len}}')
             if record[None] > 0: # draws
@@ -310,7 +318,7 @@ def championship(
     losses = victories.T
     if idx_insertion is not None:
         del sys.path[idx_insertion] # leave sys.path unchanged after function returns
-    return victories, losses, draws, idx_ref
+    return victories, losses, draws, avg_moves, idx_ref
 
 
     
@@ -384,13 +392,14 @@ if __name__ == '__main__':
         print('Winner %s, due to %s' % (winner, reason))
         print(game)
     else:
-        vic, los, dra, ref = championship(args.championship, game_options, args.num)
+        vic, los, dra, mov, ref = championship(args.championship, game_options, args.num)
         reverse_ref = {idx: name for name, idx in ref.items()}
         max_len = max(map(len, ref.keys()))
         totals = np.sum(vic, axis=1)
         total_draws = np.sum(dra, axis=1)
+        total_moves = np.mean(mov, axis=1)
         rankings = np.argsort(totals)[::-1]
-        print('{:{max_len}s}\t{:2s}\t{:2s}'.format('Player', 'Wins', 'Draws', max_len=max_len))
+        print('{:{max_len}s}\t{:2s}\t{:2s}\t{:2s}'.format('Player', 'Wins', 'Draws', 'Moves', max_len=max_len))
         for idx in rankings:
-            print('{:{max_len}s}\t{:2d}\t{:2d}'.format(reverse_ref[idx], totals[idx], total_draws[idx], max_len=max_len))
+            print('{:{max_len}s}\t{:2d}\t{:2d}\t{:2d}'.format(reverse_ref[idx], totals[idx], total_draws[idx], total_moves[idx], max_len=max_len))
     exit(0)
